@@ -1,0 +1,2 @@
+config : local_configs.NYUDepthv2.DFormer_Base 
+continue_fpath : models/DFormer/checkpoints/trained/NYUv2_DFormer_Base.pth 
