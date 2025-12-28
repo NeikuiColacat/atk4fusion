@@ -26,21 +26,18 @@ class PatchGenerator(nn.Module):
         self.patch = nn.Parameter(init_tensor)
     
     def get_mask_from_stages(self):
-        device = self.img.device
         top , left = self.top , self.left
         h , w = self.patch_h , self.patch_w
-        H , W = self.img.shape[2] , self.img.shape[3]
 
-        mask_orig = torch.zeros((1,1,H,W), device=device)
+        mask_orig = torch.zeros_like(self.img)
         mask_orig[:, :, top : top + h, left : left + w] = 1
-        self.mask = mask_orig
+        self.mask = mask_orig[:,0,:,:]
 
     def insert_patch(self, img, patch):
         """
         the input resolution : NYUDepthv2 , 480 x 640
         """
 
-        B, C, H, W = img.shape
         _, _, h, w = patch.shape
         
         top = self.top
