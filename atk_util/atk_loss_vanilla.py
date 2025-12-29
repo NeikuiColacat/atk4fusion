@@ -129,7 +129,7 @@ def get_mIoU_sklearn(logits: torch.Tensor, label: torch.Tensor, patch_mask: torc
     # 6. 计算所有存在类别的平均值
     mIoU = IoU.mean()
 
-    return IoU, mIoU
+    return IoU, mIoU*100
 
 
 # def get_confusion_matrix(pred: torch.Tensor, label: torch.Tensor , patch_mask : torch.Tensor):
