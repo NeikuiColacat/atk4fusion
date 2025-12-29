@@ -7,7 +7,8 @@ from atk_util.atk_loss_vanilla import Loss_Manager
 from atk_util.NYUv2_img_with_patch import PatchGenerator
     
 def atk():
-    model = get_dformerv2()
+    # model = get_dformerv2()
+    model = get_dformer()
     val_loader = get_NYUv2_val_loader() 
 
     for p in model.parameters():
@@ -26,7 +27,7 @@ def atk():
         loss_mgr = Loss_Manager(images, modal_xs, labels, patch_gen , model)
         optimizer = torch.optim.Adam([loss_mgr.patch_gen.patch] , lr=0.01)
 
-        for train_epoch in range(250) :
+        for train_epoch in range(200) :
             optimizer.zero_grad()
             loss = loss_mgr()
             loss.backward()
@@ -38,14 +39,29 @@ def atk():
         
         print("-----------------------------------------")
 
-        logits_clean = model(images , modal_xs)
-        _ , mIoU = atk_util.get_mIoU(logits_clean , labels , loss_mgr.patch_gen.mask) 
+        img_adv = loss_mgr.patch_gen()
+        mean_depth = torch.full_like(modal_xs, modal_xs.mean().item())
+        mask = loss_mgr.patch_gen.mask
+
+        logits_clean = model(images, modal_xs)
+        logits_adv = model(img_adv, modal_xs)
+        logits_clean_no_depth = model(images, mean_depth)
+        logits_adv_no_depth = model(img_adv, mean_depth)
+
+        _, mIoU = atk_util.get_mIoU_sklearn(logits_clean, labels, mask)
         print("clean mIoU" , mIoU)
 
-        logits_adv = model(loss_mgr.patch_gen(), modal_xs)
-        _ , mIoU = atk_util.get_mIoU(logits_adv , labels , loss_mgr.patch_gen.mask) 
+        _, mIoU = atk_util.get_mIoU_sklearn(logits_adv, labels, mask)
         print("adv mIoU" , mIoU)
-        break
+
+        _, mIoU = atk_util.get_mIoU_sklearn(logits_clean_no_depth, labels, mask)
+        print("clean mIoU no depth" , mIoU)
+
+        _, mIoU = atk_util.get_mIoU_sklearn(logits_adv_no_depth, labels, mask)
+        print("adv mIoU no depth" , mIoU)
+
+        print("-----------------------------------------")
+
 
 if __name__ == "__main__":
     atk()
