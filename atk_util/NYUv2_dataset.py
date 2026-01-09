@@ -44,9 +44,6 @@ def get_NYUv2_val_loader():
     parser = create_attack_parser()
 
     with Engine(custom_parser=parser) as engine:
-        # with open("config/DFormer.yaml", "r", encoding="utf-8") as f:
-        #     config_yaml = yaml.safe_load(f)
-        # config = getattr(import_module(args.config), "C")
 
         args = parser.parse_args()
         config = getattr(import_module(args.config), "C")
@@ -73,7 +70,11 @@ def get_NYUv2_val_loader():
         print(f"Dataset path: {config.dataset_path}")
         print(f"Eval source: {config.eval_source}")
 
+        with open("config/DFormer.yaml", "r", encoding="utf-8") as f:
+            config_yaml = yaml.safe_load(f)
 
-        val_loader, val_sampler = get_val_loader(engine, RGBXDataset, config, 1)
+        batch_size = config_yaml.get("batch_size", 1)
+
+        val_loader, val_sampler = get_val_loader(engine, RGBXDataset, config, batch_size)
 
     return val_loader

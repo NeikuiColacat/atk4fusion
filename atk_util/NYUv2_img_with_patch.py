@@ -13,6 +13,7 @@ class PatchGenerator(nn.Module):
         self.patch_h = self.patch_w = 128 
         
         self.img = img
+        self.batch_size = img.shape[0]
         self.get_mask_from_stages()
 
         device = self.img.device
@@ -20,7 +21,7 @@ class PatchGenerator(nn.Module):
         self.mean = torch.tensor(mean, device=device, dtype=dtype).view(1, -1, 1, 1)
         self.std = torch.tensor(std, device=device, dtype=dtype).view(1, -1, 1, 1)
 
-        init_tensor = torch.rand((1 , 3, self.patch_h, self.patch_w), dtype=dtype, device=device)
+        init_tensor = torch.rand((self.batch_size , 3, self.patch_h, self.patch_w), dtype=dtype, device=device)
         init_tensor = torch.clamp(init_tensor, 0, 1)
 
         self.patch = nn.Parameter(init_tensor)

@@ -101,9 +101,9 @@ def get_mIoU_sklearn(logits: torch.Tensor, label: torch.Tensor, patch_mask: torc
 
     # 1. 转换数据类型并展平
     # 先在 GPU 上做 argmax，减少传回 CPU 的数据量
-    pred = torch.argmax(logits, dim=1).view(-1).cpu().numpy()
-    label = label.view(-1).cpu().numpy()
-    patch_mask = patch_mask.view(-1).cpu().numpy()
+    pred = torch.argmax(logits, dim=1).reshape(-1).cpu().numpy()
+    label = label.reshape(-1).cpu().numpy()
+    patch_mask = patch_mask.reshape(-1).cpu().numpy()
 
     # 2. 掩码过滤：只保留不是 ignore_index 且不在补丁区域的像素
     valid_mask = (label != ignore_index) & (patch_mask == 0)
