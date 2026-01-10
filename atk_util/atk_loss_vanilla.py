@@ -82,7 +82,7 @@ class Loss_Manager(nn.Module):
         adv_loss = self.get_loss(logits , mask)
 
 
-        depth_none = torch.full_like(self.depth , self.depth.mean().item())
+        depth_none = torch.full_like(self.depth , self.depth.mean())
         logits_without_depth = self.model(img_adv , depth_none)
         loss_withou_depth = self.get_loss(logits_without_depth , mask)
         

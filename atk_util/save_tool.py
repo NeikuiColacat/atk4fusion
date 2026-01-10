@@ -61,26 +61,30 @@ def de_norm(img: torch.Tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.
     img = img * std + mean
     return img.clamp(0, 1)
 
+def get_4_logits(model : torch.nn.Module , images : torch.Tensor , img_adv : torch.Tensor , modal_xs : torch.Tensor):
+
+        mean_depth = torch.full_like(modal_xs , modal_xs.mean())
+
+        with torch.no_grad():
+            logits_clean = model(images, modal_xs)
+            logits_adv = model(img_adv, modal_xs)
+            logits_clean_no_depth = model(images, mean_depth)
+            logits_adv_no_depth = model(img_adv, mean_depth)
+
+        return logits_clean , logits_adv , logits_clean_no_depth , logits_adv_no_depth 
+
 def save_all_results(
-    model,
-    images,
-    img_adv, 
-    modal_xs,
-    mean_depth,
-    idx=0,
-    save_path="output/adv_results"
+    images: torch.Tensor,
+    img_adv: torch.Tensor,
+    idx: int,
+    save_path: str,
+    logits_clean: torch.Tensor,
+    logits_adv: torch.Tensor,
+    logits_clean_no_depth: torch.Tensor,
+    logits_adv_no_depth: torch.Tensor,
 ):
     """
     保存所有对抗攻击结果，包括4种分割可视化和对抗图片
-    
-    Args:
-        model: 分割模型
-        images: 原始图片 [B, 3, H, W]
-        img_adv: 插入patch后的图片 [B, 3, H, W]
-        modal_xs: 深度图 [B, 3, H, W]
-        mean_depth: 平均深度图 [B, 3, H, W]
-        idx: batch索引，用于文件命名
-        save_path: 保存路径
     """
     # 创建子文件夹
     clean_path = os.path.join(save_path, "clean")
@@ -93,11 +97,6 @@ def save_all_results(
         os.makedirs(path, exist_ok=True)
     
     # 1. 获取4种logits
-    with torch.no_grad():
-        logits_clean = model(images, modal_xs)
-        logits_adv = model(img_adv, modal_xs)
-        logits_clean_no_depth = model(images, mean_depth)
-        logits_adv_no_depth = model(img_adv, mean_depth)
     
     # 2. 转换为彩色分割图
     palette = get_palette()
