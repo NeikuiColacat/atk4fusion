@@ -10,7 +10,7 @@ class PatchGenerator(nn.Module):
         super().__init__()
 
         self.top = self.left = 256 
-        self.patch_h = self.patch_w = 128 
+        self.patch_h = self.patch_w  = 200 
         
         self.img = img
         self.batch_size = img.shape[0]

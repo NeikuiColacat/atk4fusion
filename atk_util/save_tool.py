@@ -82,6 +82,7 @@ def save_all_results(
     logits_adv: torch.Tensor,
     logits_clean_no_depth: torch.Tensor,
     logits_adv_no_depth: torch.Tensor,
+    labels: torch.Tensor = None,
 ):
     """
     保存所有对抗攻击结果，包括4种分割可视化和对抗图片
@@ -92,8 +93,9 @@ def save_all_results(
     clean_no_depth_path = os.path.join(save_path, "clean_no_depth")
     adv_no_depth_path = os.path.join(save_path, "adv_no_depth")
     adv_img_path = os.path.join(save_path, "adv_images")
+    gt_labels_path = os.path.join(save_path, "gt_labels")
     
-    for path in [clean_path, adv_path, clean_no_depth_path, adv_no_depth_path, adv_img_path]:
+    for path in [clean_path, adv_path, clean_no_depth_path, adv_no_depth_path, adv_img_path, gt_labels_path]:
         os.makedirs(path, exist_ok=True)
     
     # 1. 获取4种logits
@@ -125,6 +127,17 @@ def save_all_results(
         # 保存对抗图片（反归一化）到单独文件夹
         img_adv_vis = de_norm(img_adv[i:i+1])
         save_image(img_adv_vis[0], os.path.join(adv_img_path, filename))
+    
+    # 保存 GT labels（只保存前两个 batch）
+    if labels is not None and idx < 2:
+        # 将 labels 限制在有效范围内（0 到 palette 长度-1）
+        labels_clamped = labels.clamp(0, len(palette) - 1)
+        labels_color = torch.tensor(palette, device=labels.device, dtype=torch.uint8)[labels_clamped]  # [B,H,W,3]
+        labels_color = labels_color.permute(0, 3, 1, 2).float() / 255.0  # [B,3,H,W]
+        
+        for i in range(B):
+            filename = f"batch{idx}_img{i}.png"
+            save_image(labels_color[i], os.path.join(gt_labels_path, filename))
 
 def save_mIoU_log(
     mIoU_clean,

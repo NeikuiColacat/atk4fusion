@@ -69,7 +69,7 @@ def atk():
     torch.set_float32_matmul_precision('high')
 
     model = get_dformer()
-    model = torch.compile(model)
+    # model = torch.compile(model)
     val_loader = get_NYUv2_val_loader() 
 
     for p in model.parameters():
@@ -90,11 +90,11 @@ def atk():
         modal_xs = minibatch["modal_x"].to(device)
 
         patch_gen = PatchGenerator(images) 
-        loss_mgr = Loss_Manager(images, modal_xs, labels, patch_gen , model)
+        loss_mgr = Loss_Manager(images, modal_xs, labels, patch_gen , model , lambda_print=0, lambda_smooth=0)
         optimizer = torch.optim.Adam([loss_mgr.patch_gen.patch] , lr=0.01)
 
 
-        for train_epoch in range(200) :
+        for train_epoch in range(300) :
 
             optimizer.zero_grad()
 
@@ -133,19 +133,22 @@ def atk():
         all_mIoU_clean_no_depth.append(mIoU_clean_no_depth)
         all_mIoU_adv_no_depth.append(mIoU_adv_no_depth)
 
+        save_path = "output/DFormerv1_200"
+
         save_all_results(
             images,
             img_adv,
             idx,
-            "output/DFormerv1",
+            save_path,
             logits_clean,
             logits_adv,
             logits_clean_no_depth,
             logits_adv_no_depth,
+            labels,
         )
 
         
-        if idx % 20 == 0 or idx == len(val_loader) - 1 :
+        if idx % 1 == 0 or idx == len(val_loader) - 1 :
             # 计算全局平均 mIoU
             avg_mIoU_clean = sum(all_mIoU_clean) / len(all_mIoU_clean)
             avg_mIoU_adv = sum(all_mIoU_adv) / len(all_mIoU_adv)
@@ -158,8 +161,10 @@ def atk():
                 avg_mIoU_adv,
                 avg_mIoU_clean_no_depth,
                 avg_mIoU_adv_no_depth,
-                log_path="output/DFormerv1/mIoU_average.txt"
+                log_path=save_path + "/mIoU_average.txt"
             )
+        
+        break
 
 
 if __name__ == "__main__":
