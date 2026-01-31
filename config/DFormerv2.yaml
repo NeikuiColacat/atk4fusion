@@ -1,3 +1,19 @@
-config : local_configs.NYUDepthv2.DFormerv2_B
-continue_fpath : models/DFormer/checkpoints/trained/DFormerv2_Base_NYU.pth 
-batch_size : 8 
+# ===========================================
+# DFormerv2 模型配置文件
+# ===========================================
+
+# ---------- 模型版本 ----------
+version: v2                    # v1 (DFormer) 或 v2 (DFormerv2)
+model_type: base               # small, base, large
+
+# ---------- 权重文件 ----------
+checkpoint_path: model_weights/dformer/DFormerv2_Base_NYU.pth
+
+# ---------- 模型参数 ----------
+num_classes: 40
+decoder: ham
+decoder_embed_dim: 512
+
+# ---------- 推理设置 ----------
+device: cuda
+freeze: true

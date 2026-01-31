@@ -1,15 +1,23 @@
+from fontTools.misc.symfont import C
 import torch
-import atk_util.atk_loss_vanilla as atk_util 
-
-from get_model.DFormer import get_dformer
-from get_model.DFormer import get_dformerv2
-from atk_util.NYUv2_dataset import get_NYUv2_val_loader 
-from atk_util.atk_loss_vanilla import Loss_Manager
-from atk_util.NYUv2_img_with_patch import PatchGenerator
-from atk_util.save_tool import save_all_results , save_mIoU_log , get_4_logits
-
-from torch.cuda.amp import autocast
 import triton
+import argparse
+import yaml
+
+from config.config import Config
+from atk_utils.metrics import get_mIoU_sklearn 
+from atk_utils.DFormer import get_dformer
+from atk_utils.DFormer import get_dformerv2
+from atk_utils.NYUv2_dataset import get_NYUv2_val_loader 
+from atk_utils.atk_loss_vanilla import Loss_Manager
+from atk_utils.NYUv2_img_with_patch import PatchGenerator
+from atk_utils.save_tool import save_all_results , save_mIoU_log , get_4_logits
+from atk_utils.metrics import StreamingMIoU
+from torch.cuda.amp import autocast
+
+from torch import Tensor
+from torch.nn import Module
+from torch.utils.data import DataLoader 
 
 def print_mIoU_single_batch(
     idx: int,
@@ -29,16 +37,16 @@ def print_mIoU_single_batch(
 
     print(f"Batch_{idx}-----------------------------------------")
 
-    _, mIoU_clean = atk_util.get_mIoU_sklearn(logits_clean, labels, mask)
+    _, mIoU_clean = get_mIoU_sklearn(logits_clean, labels, mask)
     print(f"Batch {idx} - clean mIoU: {mIoU_clean:.4f}")
 
-    _, mIoU_adv = atk_util.get_mIoU_sklearn(logits_adv, labels, mask)
+    _, mIoU_adv = get_mIoU_sklearn(logits_adv, labels, mask)
     print(f"Batch {idx} - adv mIoU: {mIoU_adv:.4f}")
 
-    _, mIoU_clean_no_depth = atk_util.get_mIoU_sklearn(logits_clean_no_depth, labels, mask)
+    _, mIoU_clean_no_depth = get_mIoU_sklearn(logits_clean_no_depth, labels, mask)
     print(f"Batch {idx} - clean mIoU no depth: {mIoU_clean_no_depth:.4f}")
 
-    _, mIoU_adv_no_depth = atk_util.get_mIoU_sklearn(logits_adv_no_depth, labels, mask)
+    _, mIoU_adv_no_depth = get_mIoU_sklearn(logits_adv_no_depth, labels, mask)
     print(f"Batch {idx} - adv mIoU no depth: {mIoU_adv_no_depth:.4f}")
 
     print("-----------------------------------------------------")
@@ -63,38 +71,57 @@ def _mem(tag: str):
 
     torch.cuda.reset_peak_memory_stats()
 
+def boot_args() -> Config:
+    parser = argparse.ArgumentParser(description="boot config path")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config/DFormer.yaml",
+        help="path to config yaml file",
+    )
+
+    config_path:str= parser.parse_args().config
+    with open(config_path , "r") as f:
+        config: dict = yaml.safe_load(f)
+
+    return Config(**config) 
+
 def atk():
-    # model = get_dformerv2()
-    print(triton.__version__)
+    config : Config = boot_args()
     torch.set_float32_matmul_precision('high')
 
-    model = get_dformer()
+    model: Module = get_dformer()
     # model = torch.compile(model)
-    val_loader = get_NYUv2_val_loader() 
+    val_loader: DataLoader = get_NYUv2_val_loader(batch_size=config.batch_size) 
 
     for p in model.parameters():
         p.requires_grad = False
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = config.device
 
-    all_mIoU_clean = []
-    all_mIoU_adv = []
-    all_mIoU_clean_no_depth = []
-    all_mIoU_adv_no_depth = []
+    all_mIoU_clean: list = []
+    all_mIoU_adv: list = []
+    all_mIoU_clean_no_depth: list = []
+    all_mIoU_adv_no_depth: list = []
 
+    metrics: StreamingMIoU = StreamingMIoU(40)
 
     for idx , minibatch in enumerate(val_loader):
 
-        images = minibatch["data"].to(device)
-        labels = minibatch["label"].to(device)
-        modal_xs = minibatch["modal_x"].to(device)
+        images: Tensor = minibatch["data"].to(device)
+        labels: Tensor = minibatch["label"].to(device)
+        modal_xs: Tensor = minibatch["modal_x"].to(device)
 
+        logits: Tensor = model(images, modal_xs)
+        metrics.update(logits,labels , torch.zeros_like(labels))
+
+        print("done")
+        continue
         patch_gen = PatchGenerator(images) 
         loss_mgr = Loss_Manager(images, modal_xs, labels, patch_gen , model , lambda_print=0, lambda_smooth=0)
         optimizer = torch.optim.Adam([loss_mgr.patch_gen.patch] , lr=0.01)
 
-
-        for train_epoch in range(300) :
+        for train_epoch in range(config.epochs) :
 
             optimizer.zero_grad()
 
@@ -133,7 +160,7 @@ def atk():
         all_mIoU_clean_no_depth.append(mIoU_clean_no_depth)
         all_mIoU_adv_no_depth.append(mIoU_adv_no_depth)
 
-        save_path = "output/DFormerv1_200"
+        save_path = "output/test"
 
         save_all_results(
             images,
@@ -164,8 +191,7 @@ def atk():
                 log_path=save_path + "/mIoU_average.txt"
             )
         
-        break
-
+    print(metrics.compute())
 
 if __name__ == "__main__":
     atk()

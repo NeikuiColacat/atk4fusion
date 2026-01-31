@@ -1,0 +1,3 @@
+[submodule "models/DFormer"]
+	path = models/DFormer
+	url = https://github.com/VCIP-RGBD/DFormer.git
