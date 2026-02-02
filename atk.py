@@ -107,13 +107,20 @@ def atk():
     metrics: StreamingMIoU = StreamingMIoU(40)
 
     for idx , minibatch in enumerate(val_loader):
-
         images: Tensor = minibatch["data"].to(device)
         labels: Tensor = minibatch["label"].to(device)
         modal_xs: Tensor = minibatch["modal_x"].to(device)
 
-        logits: Tensor = model(images, modal_xs)
-        metrics.update(logits,labels , torch.zeros_like(labels))
+        scales = [0.5, 0.75, 1.0, 1.25]
+        import torch.nn.functional as F
+        for s in scales:
+            images_s = F.interpolate(images, scale_factor=s, mode="bilinear", align_corners=False)
+            depth_s = F.interpolate(modal_xs, scale_factor=s, mode="bilinear", align_corners=False)
+            labels_s = F.interpolate(labels.unsqueeze(1).float(), scale_factor=s, mode="nearest").squeeze(1).long()
+
+
+            logits: Tensor = model(images_s, depth_s)
+            metrics.update(logits,labels_s, torch.zeros_like(labels_s))
 
         print("done")
         continue

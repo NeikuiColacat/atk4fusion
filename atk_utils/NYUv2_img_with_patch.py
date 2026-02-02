@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch import Tensor
 import torch.nn.functional as F
 
 
@@ -14,7 +15,7 @@ class PatchGenerator(nn.Module):
         
         self.img = img
         self.batch_size = img.shape[0]
-        self.get_mask_from_stages()
+        self.get_mask()
 
         device = self.img.device
         dtype = self.img.dtype
@@ -26,7 +27,7 @@ class PatchGenerator(nn.Module):
 
         self.patch = nn.Parameter(init_tensor)
     
-    def get_mask_from_stages(self):
+    def get_mask(self):
         top , left = self.top , self.left
         h , w = self.patch_h , self.patch_w
 
@@ -53,3 +54,48 @@ class PatchGenerator(nn.Module):
         patch_norm = (patch - self.mean) / self.std
         img_adv = self.insert_patch(self.img , patch_norm) 
         return img_adv 
+
+class PatchGeneratorPadding(nn.Module):
+    def __init__(
+        self,
+        img: torch.Tensor,
+        pad: int,
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225],
+    ) -> None:
+        super().__init__()
+
+        self.pad: int = pad
+        self.img: Tensor = img
+        self.batch_size: int = img.shape[0]
+
+
+        device = self.img.device
+        dtype = self.img.dtype
+        self.mean: Tensor = torch.tensor(mean, device=device, dtype=dtype).view(1, -1, 1, 1)
+        self.std: Tensor = torch.tensor(std, device=device, dtype=dtype).view(1, -1, 1, 1)
+
+        _, _, H, W = self.img.shape
+        self.img_padded: Tensor = F.pad(
+            self.img, (self.pad, self.pad, self.pad, self.pad), mode="constant", value=0
+        )
+
+        self.patch = nn.Parameter(
+            torch.rand(1, 3, H + 2 * pad, W + 2 * pad, device=device, dtype=dtype)
+        )
+        self.mask: Tensor = torch.ones(
+            1, 3, H + 2 * pad, W + 2 * pad, device=device, dtype=dtype
+        )
+        self.mask[:, :, pad : pad + H, pad : pad + W] = 0
+        
+        # self.register_buffer("mask", self.mask)
+
+    def forward(self) -> Tensor:
+        patch_normalized: Tensor = torch.clamp(self.patch, 0, 1)
+        patch_normalized: Tensor = (patch_normalized - self.mean) / self.std
+
+        img_adv: Tensor = (
+            self.img_padded * (1 - self.mask) + patch_normalized * self.mask
+        )
+
+        return img_adv
