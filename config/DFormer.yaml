@@ -2,40 +2,29 @@
 # DFormer 模型配置文件
 # ===========================================
 
-# ---------- 模型版本 ----------
 version: v1                    # v1 (DFormer) 或 v2 (DFormerv2)
 model_type: base               # tiny, small, base, large
 
-# 或者直接指定 backbone (优先级高于 version + model_type)
-# backbone: DFormer-Base       # DFormer-Tiny/Small/Base/Large
-# backbone: DFormerv2_B        # DFormerv2_S/B/L
-
-# ---------- 权重文件 ----------
 # 相对于项目根目录的路径
 checkpoint_path: model_weights/dformer/NYUv2_DFormer_Base.pth
+log_path : ./logs
 
-# DFormer v1 权重:
-#   - model_weights/dformer/NYUv2_DFormer_Tiny.pth
-#   - model_weights/dformer/NYUv2_DFormer_Small.pth
-#   - model_weights/dformer/NYUv2_DFormer_Base.pth
-#   - model_weights/dformer/NYUv2_DFormer_Large.pth
-#
-# DFormer v2 权重:
-#   - model_weights/dformer/DFormerv2_Small_NYU.pth
-#   - model_weights/dformer/DFormerv2_Base_NYU.pth
-#   - model_weights/dformer/DFormerv2_Large_NYU.pth
-
-# ---------- 模型参数 ----------
 num_classes: 40                # NYUv2: 40 类
 decoder: ham                   # ham, MLPDecoder
 decoder_embed_dim: 512
 
-# ---------- 推理设置 ----------
 device: cuda
 freeze: true                   # 是否冻结参数
 
-epochs: 100
-batch_size : 64 
+epochs: 1000
+batch_size : 8 
+pad : 30
+learning_rate : 2.5
+
+momentum: 0.9
+weight_decay: 0.0
+warmup_steps: 1000
+
 
 # ---------- 数据集 (供参考) ----------
 # dataset:

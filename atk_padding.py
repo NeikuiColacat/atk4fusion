@@ -1,8 +1,11 @@
+from triton.tools.compile import desc
 import torch
 import triton
+import time
 import argparse
 import yaml
 
+from tqdm import tqdm
 from config.config import Config
 from atk_utils.metrics import get_mIoU_sklearn 
 from atk_utils.DFormer import get_dformer
@@ -19,6 +22,8 @@ from torch.nn import Module
 from torch.utils.data import DataLoader 
 
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from torch.utils.tensorboard import SummaryWriter
+
 
 def boot_args() -> Config:
     parser = argparse.ArgumentParser(description="boot config path")
@@ -108,7 +113,7 @@ def train_utils_builder(config: Config) -> tuple[
         adv_wo_depth_metrics,
     )
 
-def atk(config : Config):
+def atk(config : Config , writer : SummaryWriter):
     (
         model,
         val_loader ,
@@ -125,9 +130,11 @@ def atk(config : Config):
     # model = torch.compile(model)
 
     device: str = config.device
-    for train_epoch in range(config.epochs) :
+    dataset_len: int = len(val_loader)
 
-        for idx , minibatch in enumerate(val_loader):
+    for train_epoch in tqdm(range(config.epochs), desc="epochs", leave=True):
+        for idx, minibatch in enumerate(tqdm(val_loader, desc="batch_id", leave=False)):
+
             images: Tensor = minibatch["data"].to(device)
             labels: Tensor = minibatch["label"].to(device)
             modal_xs: Tensor = minibatch["modal_x"].to(device)
@@ -141,10 +148,16 @@ def atk(config : Config):
             optimizer.step()
             scheduler.step()
 
-        if train_epoch % 5 == 0:
-            print(loss.item())
+            if (step := train_epoch * dataset_len + idx) % 10 == 0:
+                writer.add_scalar("train/loss" , loss.item(), step)
+                writer.add_scalar("train/lr", scheduler.get_last_lr()[0], step)
 
-            
+                tqdm.write("tensorboard scalar updated")
+
+                if step % 20 == 0:
+                    writer.flush()
+
+                    tqdm.write("tensorboard flush")
             # with torch.no_grad():
             #     img_adv = loss_mgr.patch_gen()
             #     mask = loss_mgr.patch_gen.mask
@@ -153,11 +166,15 @@ def atk(config : Config):
             #     get_4_logits(model, images, img_adv, modal_xs)
             # )
 
+    writer.close()
+
 if __name__ == "__main__":
     torch.set_float32_matmul_precision('high')
-
     config : Config = boot_args()
-    atk(config)
+
+    ts : str = time.strftime("%Y%m%d-%H%M%S")
+    writer : SummaryWriter = SummaryWriter(log_dir=f"{config.log_path}/{ts}")
+    atk(config, writer)
 
 
 

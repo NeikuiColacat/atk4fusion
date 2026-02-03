@@ -10,3 +10,4 @@ datasets/
 *.tar
 
 visual_prompting
+logs/

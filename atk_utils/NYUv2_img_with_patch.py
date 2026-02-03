@@ -58,37 +58,62 @@ class PatchGenerator(nn.Module):
 class PatchGeneratorPadding(nn.Module):
     def __init__(
         self,
-        img: torch.Tensor,
         pad: int,
+        img: Tensor,
+        label: Tensor,
+        modal_xs: Tensor,
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225],
     ) -> None:
         super().__init__()
 
         self.pad: int = pad
-        self.img: Tensor = img
-        self.batch_size: int = img.shape[0]
+        device = self.device = img.device
+        dtype = self.dtype = img.dtype
 
+        self.mean: Tensor = torch.tensor(
+            mean, device=device, dtype=dtype
+        ).reshape(1, -1, 1, 1)
 
-        device = self.img.device
-        dtype = self.img.dtype
-        self.mean: Tensor = torch.tensor(mean, device=device, dtype=dtype).view(1, -1, 1, 1)
-        self.std: Tensor = torch.tensor(std, device=device, dtype=dtype).view(1, -1, 1, 1)
+        self.std: Tensor = torch.tensor(
+            std, device=device, dtype=dtype
+        ).reshape(1, -1, 1, 1)
+        self.update_batch(img, label, modal_xs)
+
 
         _, _, H, W = self.img.shape
-        self.img_padded: Tensor = F.pad(
-            self.img, (self.pad, self.pad, self.pad, self.pad), mode="constant", value=0
-        )
 
         self.patch = nn.Parameter(
             torch.rand(1, 3, H + 2 * pad, W + 2 * pad, device=device, dtype=dtype)
         )
         self.mask: Tensor = torch.ones(
-            1, 3, H + 2 * pad, W + 2 * pad, device=device, dtype=dtype
+            1, 1, H + 2 * pad, W + 2 * pad, device=device, dtype=dtype
         )
         self.mask[:, :, pad : pad + H, pad : pad + W] = 0
-        
-        # self.register_buffer("mask", self.mask)
+
+    def update_batch(self, img: Tensor, label: Tensor, modal_xs: Tensor) -> None:
+        if hasattr(self , "img"):
+            assert img.shape[1:] == self.img.shape[1:]
+
+        self.img: Tensor = img
+        self.label: Tensor = label
+        self.modal_xs : Tensor = modal_xs
+
+        self.img_padded: Tensor = F.pad(
+            self.img, (self.pad, self.pad, self.pad, self.pad), mode="constant", value=0
+        )
+        self.label_padded: Tensor = F.pad(
+            self.label,
+            (self.pad, self.pad, self.pad, self.pad),
+            mode="constant",
+            value=255,
+        )
+        self.modal_xs_padded: Tensor = F.pad(
+            self.modal_xs,
+            (self.pad, self.pad, self.pad, self.pad),
+            mode="constant",
+            value=self.modal_xs.mean().item(),
+        )
 
     def forward(self) -> Tensor:
         patch_normalized: Tensor = torch.clamp(self.patch, 0, 1)

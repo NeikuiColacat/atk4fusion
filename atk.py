@@ -1,4 +1,3 @@
-from fontTools.misc.symfont import C
 import torch
 import triton
 import argparse
