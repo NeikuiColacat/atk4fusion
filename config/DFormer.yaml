@@ -7,6 +7,7 @@ model_type: base               # tiny, small, base, large
 
 # 相对于项目根目录的路径
 checkpoint_path: model_weights/dformer/NYUv2_DFormer_Base.pth
+save_path : /root/autodl-tmp/padding_chkpoints
 log_path : ./logs
 
 num_classes: 40                # NYUv2: 40 类
@@ -18,8 +19,8 @@ freeze: true                   # 是否冻结参数
 
 epochs: 1000
 batch_size : 8 
-pad : 30
-learning_rate : 2.5
+pad : 32 
+learning_rate : 0.05
 
 momentum: 0.9
 weight_decay: 0.0

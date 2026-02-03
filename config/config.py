@@ -10,7 +10,7 @@ class Config:
     backbone: Optional[str] = None         
     
     checkpoint_path: str = "model_weights/dformer/NYUv2_DFormer_Base.pth"
-    save_path: str = "output/test"         
+    save_path: str = "/root/autodl-tmp/padding_chkpoints"         
     log_path : str = "./logs"
     
     num_classes: int = 40                  

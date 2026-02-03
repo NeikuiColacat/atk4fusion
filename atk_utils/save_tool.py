@@ -4,6 +4,7 @@ import pathlib
 import matplotlib.pyplot as plt
 import os
 from torchvision.utils import save_image
+from torch import Tensor
 
 def get_palette():
     return np.array(
@@ -61,17 +62,32 @@ def de_norm(img: torch.Tensor, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.
     img = img * std + mean
     return img.clamp(0, 1)
 
-def get_4_logits(model : torch.nn.Module , images : torch.Tensor , img_adv : torch.Tensor , modal_xs : torch.Tensor):
+def get_4_logits(
+    model: torch.nn.Module,
+    images: torch.Tensor,
+    img_adv: torch.Tensor,
+    modal_xs: torch.Tensor,
+    modal_xs_padded : torch.Tensor | None = None
+) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    with torch.no_grad():
+        mean_depth = torch.full_like(modal_xs, modal_xs.mean().item())
+        logits_clean = model(images, modal_xs)
+        logits_clean_no_depth = model(images, mean_depth)
 
-        mean_depth = torch.full_like(modal_xs , modal_xs.mean())
-
-        with torch.no_grad():
-            logits_clean = model(images, modal_xs)
+        if modal_xs_padded == None : 
             logits_adv = model(img_adv, modal_xs)
-            logits_clean_no_depth = model(images, mean_depth)
             logits_adv_no_depth = model(img_adv, mean_depth)
+        else :
+            mean_depth: Tensor = torch.full_like(
+                modal_xs_padded, modal_xs_padded.mean().item()
+            )
 
-        return logits_clean , logits_adv , logits_clean_no_depth , logits_adv_no_depth 
+            logits_adv = model(img_adv, modal_xs_padded)
+            logits_adv_no_depth = model(img_adv, mean_depth)
+            
+
+    return logits_clean, logits_adv, logits_clean_no_depth, logits_adv_no_depth
+
 
 def save_all_results(
     images: torch.Tensor,
@@ -82,7 +98,7 @@ def save_all_results(
     logits_adv: torch.Tensor,
     logits_clean_no_depth: torch.Tensor,
     logits_adv_no_depth: torch.Tensor,
-    labels: torch.Tensor = None,
+    labels: torch.Tensor | None = None,
 ):
     """
     保存所有对抗攻击结果，包括4种分割可视化和对抗图片

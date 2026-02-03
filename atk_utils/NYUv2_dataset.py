@@ -298,6 +298,7 @@ def get_NYUv2_train_loader(
     shuffle: bool = True,
     scale_array: List[float] = None,
     config_path: str = None,
+    augment: bool = True,
 ) -> DataLoader:
     """
     获取 NYUv2 训练数据加载器
@@ -309,6 +310,7 @@ def get_NYUv2_train_loader(
         shuffle: 是否打乱
         scale_array: 随机缩放比例列表
         config_path: YAML 配置文件路径
+        augment: 是否启用数据增强（翻转、缩放、裁剪）。False 则只做归一化，与 val_loader 对齐
     
     Returns:
         DataLoader
@@ -321,15 +323,24 @@ def get_NYUv2_train_loader(
             yaml_config = yaml.safe_load(f)
             batch_size = yaml_config.get("batch_size", batch_size)
     
-    preprocess = TrainPreprocess(
-        norm_mean=config["norm_mean"],
-        norm_std=config["norm_std"],
-        depth_norm_mean=config["depth_norm_mean"],
-        depth_norm_std=config["depth_norm_std"],
-        image_height=config["image_height"],
-        image_width=config["image_width"],
-        scale_array=scale_array,
-    )
+    if augment:
+        preprocess = TrainPreprocess(
+            norm_mean=config["norm_mean"],
+            norm_std=config["norm_std"],
+            depth_norm_mean=config["depth_norm_mean"],
+            depth_norm_std=config["depth_norm_std"],
+            image_height=config["image_height"],
+            image_width=config["image_width"],
+            scale_array=scale_array,
+        )
+    else:
+        # 不做数据增强，只做归一化，与 val_loader 对齐
+        preprocess = ValPreprocess(
+            norm_mean=config["norm_mean"],
+            norm_std=config["norm_std"],
+            depth_norm_mean=config["depth_norm_mean"],
+            depth_norm_std=config["depth_norm_std"],
+        )
     
     dataset = NYUv2Dataset(
         dataset_root=dataset_root,
